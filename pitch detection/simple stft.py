@@ -34,19 +34,7 @@ for frame in range(num_frames):
         f0_by_fft[frame] = -1
     else:
         f0_by_fft[frame] = peak
-
-# plt.figure(figsize=(10, 4))
-# plt.plot(times, f0_by_fft, label='FFT Estimated Pitch (Hz)', color='tab:orange', alpha=0.7)
-# plt.xlabel("Time (s)")
-# plt.ylabel("Frequency (Hz)")
-# plt.title("Pitch Estimation")
-# plt.grid(True)
-# plt.legend()
-# plt.tight_layout()
-# plt.ylim(100, 600)
-# plt.show()
-
-
+        
 fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
 
 axes[0].plot(times, f0_by_fft, label='FFT Estimated Pitch (Hz)', color='tab:orange', alpha=0.7)
@@ -62,7 +50,7 @@ axes[1].set_ylabel("Volume (dB)")
 axes[1].set_title("Volume Estimation")
 axes[1].grid(True)
 axes[1].legend()
-# axes[1].set_ylim(-60, 0)
+axes[1].set_ylim(-60, 0)
 
 plt.tight_layout()
 plt.show()

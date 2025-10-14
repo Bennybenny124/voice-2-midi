@@ -1,8 +1,3 @@
-# system_config.py
-# ----------------
-# 集中所有即時 STFT 系統需要的參數設定
-
-# Audio I/O
 SR              = 48000
 CHANNELS        = 1
 FMIN            = 100

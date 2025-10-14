@@ -31,8 +31,8 @@ freqs = np.fft.rfftfreq(FRAME_LEN, d=1.0 / RATE)
 def dft(frame, frame_len = FRAME_LEN, window_fn=np.hanning):
     window = window_fn(frame_len)
     xw = frame * window
-    spectrum = np.fft.rfft(xw)        # 複數頻譜
-    magnitude = np.abs(spectrum)      # 取 magnitude
+    spectrum = np.fft.rfft(xw)
+    magnitude = np.abs(spectrum)
     return magnitude
 
 def get_volume(frame):
@@ -64,7 +64,6 @@ def find_f0(magnitude, last_f0, fmin=100, fmax=880):
 p = pyaudio.PyAudio()
 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=FRAME_LEN)
 
-# 建立畫布
 figure, plots = plt.subplots(3, 1)
 figure.tight_layout()
 a = plots[0]
@@ -75,7 +74,7 @@ ax = np.arange(0, TIME * RATE)
 ay = np.zeros(TIME * RATE)
 aline, = a.plot(ax, ay)
 a.set_xlim([0, TIME * RATE])
-a.set_ylim([-32768, 32767])  # int16 範圍
+a.set_ylim([-32768, 32767])
 
 bx = np.arange(0, TIME * RATE)
 by = np.zeros(TIME * RATE)
@@ -116,7 +115,6 @@ for i in range(1000):
     data = stream.read(FRAME_LEN, exception_on_overflow=False)
     new_samples = np.frombuffer(data, dtype=np.int16)
 
-    # 把新資料塞進 buffer (FIFO)
     buffer_sample = np.roll(buffer_sample, -FRAME_LEN)
     buffer_sample[-FRAME_LEN:] = new_samples
     

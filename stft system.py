@@ -116,7 +116,6 @@ def find_f0(db: np.ndarray, volume_db: float):
 p = pyaudio.PyAudio()
 stream = p.open(format=pyaudio.paInt16, channels=CHANNELS, rate=SR, input=True, frames_per_buffer=FRAME_LEN)
 
-# 建立畫布
 figure, plots = plt.subplots(3, 1)
 figure.tight_layout()
 a = plots[0]
