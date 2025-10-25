@@ -4,3 +4,5 @@
 /dynamics
 /test files
 /__pycache__
+midi/__pycache__
+pitch detection/__pycache__

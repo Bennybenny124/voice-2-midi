@@ -1,3 +1,6 @@
+# -----------------------------------------------------------------------------
+# Parameters
+# -----------------------------------------------------------------------------
 SR              = 48000
 CHANNELS        = 1
 FMIN            = 100
@@ -40,6 +43,16 @@ def smooth_spectrum_blackman(spectrum, window_size=9):
     window /= window.sum()
     return np.convolve(spectrum, window, mode='same')
 
+def dft(frame, frame_len = FRAME_LEN, window_fn=np.hanning):
+    window = window_fn(frame_len)
+    xw = frame * window
+    return np.abs(np.fft.rfft(xw))
+
+def get_volume(frame, reference, reference_dB):
+    x = frame.astype(np.float32) / 32768.0
+    rms = np.sqrt(safe_mean(x**2))
+    return 20.0 * np.log10(rms / reference) + reference_dB
+
 def near(f1, f2):
     return abs(f1 - f2) < F0_RELATIVE_TOLERANCE * f2
 
@@ -47,6 +60,9 @@ def safe_mean(x):
     if x is None or len(x) == 0:
         return 0.0
     return float(np.mean(x))
+
+def is_flat(spectrum, threshold = 16):
+    return np.max(spectrum) - np.median(spectrum) < threshold
 
 def get_window(name: str, n: int):
     name = (name or "").lower()

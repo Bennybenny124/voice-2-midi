@@ -6,52 +6,40 @@ import struct
 from system_config import *
 from midi.messages import *
 
-START = 0
-END = 0
-
 with open("calibration/73dB.bin", "rb") as f:
     dB_73 = struct.unpack("f", f.read(4))[0]
 
 freqs = np.fft.rfftfreq(FRAME_LEN, d=1.0 / SR)
+cut_freqs = freqs[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
 
-def dft(frame, frame_len = FRAME_LEN, window_fn=np.hanning):
-    window = window_fn(frame_len)
-    xw = frame * window
-    spectrum = np.fft.rfft(xw)
-    magnitude = np.abs(spectrum)
-    return magnitude
+def find_f0(spectrum: np.ndarray, volume: float) -> float:
+    '''
+    Returns f0 based on the given spectrum and volume. 
 
-def get_volume(frame):
-    x = frame.astype(np.float32) / 32768.0
-    rms = np.sqrt(safe_mean(x**2))
-    return 20.0 * np.log10(rms / dB_73) + 73
-
-def find_f0(db: np.ndarray, volume_db: float): 
-    spectrum = smooth_spectrum_blackman(db)
-
-    valid_idx = np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]
-
+    Args:
+        spectrum (np.ndarray): 
+        volume (float): calibrated volume, in decibles.
+    
+    Returns:
+        float: estimated f0
+    '''
     peaks = []
-    for idx in valid_idx[1:-2]:
+    for idx in range(2, len(spectrum) - 3):
         if spectrum[idx - 1] < spectrum[idx] > spectrum[idx + 1]:
-            x = freqs[idx - 2:idx + 3]
+            x = cut_freqs[idx - 2:idx + 3]
             y = spectrum[idx - 2:idx + 3]
             a, b, _ = np.polyfit(x, y, 2)
             peak_freq = -b / (2 * a)
 
             if len(peaks) > 0 and spectrum[idx] < peaks[-1][1] - 22:
                 continue
-            if len(peaks) == 1 and (peaks[-1][1] + 15 < spectrum[idx]) and (CUTOFF_L <= peak_freq <= CUTOFF_H) and (a < MAX_A):
-                if abs(freqs[idx] - peak_freq) < PEAK_SHIFT_TOLERANCE:
-                    peaks[-1] = [peak_freq, spectrum[idx], idx]
-                else:
-                    peaks[-1] = [freqs[idx], spectrum[idx], idx]
-            elif len(peaks) < MAX_PEAK and CUTOFF_L <= peak_freq <= CUTOFF_H and a < MAX_A:
-                if abs(freqs[idx] - peak_freq) < PEAK_SHIFT_TOLERANCE:
-                    peaks.append([peak_freq, spectrum[idx], idx])
-                else:
-                    peaks.append([freqs[idx], spectrum[idx], idx])
-    
+            else:
+                not_shifted = abs(cut_freqs[idx] - peak_freq) < PEAK_SHIFT_TOLERANCE
+                # if len(peaks) == 1 and (peaks[-1][1] + 15 < spectrum[idx]) and (a < MAX_A):
+                #     peaks[-1] = [peak_freq if not_shifted else cut_freqs[idx], spectrum[idx]]
+                # el
+                if len(peaks) < MAX_PEAK and CUTOFF_L <= peak_freq <= CUTOFF_H and a < MAX_A:
+                    peaks.append([peak_freq if not_shifted else cut_freqs[idx], spectrum[idx]])
     peaks = np.array(peaks, dtype=float)
 
     i = 1
@@ -64,7 +52,7 @@ def find_f0(db: np.ndarray, volume_db: float):
         else:
             i += 1
 
-    if len(peaks) == 0 or volume_db < 40:
+    if len(peaks) == 0 or volume < 30 or is_flat(spectrum):
         return 0.0
     elif len(peaks) < MIN_PEAK:
         return peaks[0][0]
@@ -138,7 +126,7 @@ cx = np.arange(0, TIME_WINDOW_SEC * SR // HOP_LEN)
 cy = np.zeros(TIME_WINDOW_SEC * SR // HOP_LEN)
 cline, = c.plot(cx, cy)
 c.set_xlim([0, TIME_WINDOW_SEC * SR // HOP_LEN])
-c.set_ylim([-50, 50])
+c.set_ylim([20, 100])
 
 buffer_sample = np.zeros(TIME_WINDOW_SEC * SR, dtype=np.int16)
 buffer_f0 = np.zeros(TIME_WINDOW_SEC * SR // HOP_LEN, dtype=np.float32)
@@ -148,10 +136,13 @@ for i in range(1000):
     START = time.time()
     for i in range(FRAME_LEN // HOP_LEN - 1, -1, -1):
         frame = buffer_sample[-i * HOP_LEN - FRAME_LEN : -i * HOP_LEN if i != 0 else None]
-        magnitude = dft(frame, FRAME_LEN)
+        raw_spectrum = dft(frame, FRAME_LEN)
+        dB_spectrum = 20.0 * np.log10(raw_spectrum / np.max(raw_spectrum))
+        smoothed_spectrum = smooth_spectrum_blackman(dB_spectrum)
+        spectrum = smoothed_spectrum[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
 
-        volume = get_volume(frame)
-        f0 = find_f0(magnitude, volume)
+        volume = get_volume(frame, dB_73, 73)
+        f0 = find_f0(spectrum, volume)
 
         buffer_f0 = np.roll(buffer_f0, -1)
         buffer_f0[-1] = f0

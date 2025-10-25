@@ -4,6 +4,7 @@ import librosa
 import matplotlib.pyplot as plt
 import time
 import struct
+from system_config import *
 
 FRAME_LEN = 2048
 HOP = 256
@@ -14,13 +15,6 @@ TIME = 1
 TICK = HOP / RATE
 START = 0
 END = 0
-
-def smooth_spectrum_blackman(spectrum, window_size=11):
-    if window_size % 2 == 0:
-        window_size += 1
-    window = np.blackman(window_size)
-    window /= window.sum()
-    return np.convolve(spectrum, window, mode='same')
 
 with open("calibration/73dB.bin", "rb") as f:
     dB_73 = struct.unpack("f", f.read(4))[0]
