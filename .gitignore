@@ -1,8 +1,10 @@
 /.vscode
-/calibration
+/calibration/*.wav
+/calibration/*.bin
 /Data
 /dynamics
 /test files
 /__pycache__
 midi/__pycache__
 pitch detection/__pycache__
+test.py
