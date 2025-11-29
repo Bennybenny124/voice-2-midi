@@ -2,13 +2,11 @@ import pyaudio
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import struct
 from system_config import *
 from midi.messages import *
+from calibration.spl import load_reference
 
-with open("calibration/73dB.bin", "rb") as f:
-    dB_73 = struct.unpack("f", f.read(4))[0]
-
+dB_73 = load_reference()
 freqs = np.fft.rfftfreq(FRAME_LEN, d=1.0 / SR)
 cut_freqs = freqs[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
 
@@ -17,7 +15,7 @@ def find_f0(spectrum: np.ndarray, volume: float) -> float:
     Returns f0 based on the given spectrum and volume. 
 
     Args:
-        spectrum (np.ndarray): the fft spectrum between two cutoff frequencies, in decibles and with a back applied.
+        spectrum (np.ndarray): the fft spectrum between two cutoff frequencies, in decibles and with a blackman filter applied.
         volume (float): calibrated volume, in decibles.
     
     Returns:
@@ -137,7 +135,7 @@ for i in range(1000):
     for i in range(FRAME_LEN // HOP_LEN - 1, -1, -1):
         frame = buffer_sample[-i * HOP_LEN - FRAME_LEN : -i * HOP_LEN if i != 0 else None]
         raw_spectrum = dft(frame, FRAME_LEN)
-        dB_spectrum = 20.0 * np.log10(raw_spectrum / dB_73 * 0.0000001)
+        dB_spectrum = 20.0 * np.log10(raw_spectrum / dB_73) - 140 # normalize for visualization only
         smoothed_spectrum = smooth_spectrum_blackman(dB_spectrum)
         spectrum = smoothed_spectrum[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
 

@@ -18,41 +18,27 @@ END = 0
 
 with open("calibration/73dB.bin", "rb") as f:
     dB_73 = struct.unpack("f", f.read(4))[0]
-silence_spectrum = smooth_spectrum_blackman(np.full((1 + FRAME_LEN // 2,), -80))
-compensation = -silence_spectrum - 80
+
 freqs = np.fft.rfftfreq(FRAME_LEN, d=1.0 / RATE)
+cut_freqs = freqs[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
 
-def dft(frame, frame_len = FRAME_LEN, window_fn=np.hanning):
-    window = window_fn(frame_len)
-    xw = frame * window
-    spectrum = np.fft.rfft(xw)
-    magnitude = np.abs(spectrum)
-    return magnitude
-
-def get_volume(frame):
-    x = frame.astype(np.float32) / 32768.0
-    rms = np.sqrt(np.mean(x**2))
-    return 20.0 * np.log10(max(rms, 1e-12))
-
-def find_f0(magnitude, last_f0, fmin=100, fmax=880):
-    db = librosa.amplitude_to_db(magnitude, ref=dB_73) + 73    
-    smoothed = smooth_spectrum_blackman(db) + compensation
+def find_f0(spectrum, last_f0, volume):
+    if volume < 30 or is_flat(spectrum): return 0
 
     peak = 0
-    for i in range(1, len(smoothed) - 1):
-        if smoothed[i - 1] < smoothed[i] > smoothed[i + 1]:
+    for i in range(1, len(spectrum) - 1):
+        if spectrum[i - 1] < spectrum[i] > spectrum[i + 1]:
             x = freqs[i - 1:i + 2]
-            y_fit = smoothed[i - 1:i + 2]
+            y_fit = spectrum[i - 1:i + 2]
             a, b, _ = np.polyfit(x, y_fit, 2)
             peak_freq = -b / (2 * a)
 
-            if peak_freq > fmax * 1.1:
+            if peak_freq > FMAX * 1.1:
                 break
-            if fmin < peak_freq and peak == 0:
+            if FMIN < peak_freq and peak == 0:
                 peak = peak_freq
-            elif fmin < peak_freq and last_f0 != 0 and (abs(1.0 - peak_freq / last_f0) < abs(1.0 - peak / last_f0)):
+            elif FMIN < peak_freq and last_f0 != 0 and (abs(1.0 - peak_freq / last_f0) < abs(1.0 - peak / last_f0)):
                 peak = peak_freq
-
     return peak
 
 p = pyaudio.PyAudio()
@@ -90,13 +76,13 @@ for i in range(1000):
     START = time.time()
     for i in range(FRAME_LEN // HOP - 1, -1, -1):
         frame = buffer_sample[-i * HOP - FRAME_LEN : -i * HOP if i != 0 else None]
-        magnitude = dft(frame, FRAME_LEN)
-
-        volume = get_volume(frame)
-        if volume < -40: 
-            f0 = 0
-        else:
-            f0 = find_f0(magnitude, buffer_f0[-1])
+        raw_spectrum = dft(frame, FRAME_LEN)
+        dB_spectrum = 20.0 * np.log10(raw_spectrum / np.max(raw_spectrum))
+        smoothed_spectrum = smooth_spectrum_blackman(dB_spectrum)
+        spectrum = smoothed_spectrum[np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]]
+        
+        volume = get_volume(frame, dB_73, 73)
+        f0 = find_f0(spectrum, buffer_f0[-1],volume)
         
         buffer_f0 = np.roll(buffer_f0, -HOP)
         buffer_f0[-HOP:] = f0
