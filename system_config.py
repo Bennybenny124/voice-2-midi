@@ -1,16 +1,16 @@
 # -----------------------------------------------------------------------------
 # Parameters
 # -----------------------------------------------------------------------------
-SR              = 48000
+SR              = 8000
 CHANNELS        = 1
 FMIN            = 100
 FMAX            = 600
-FRAME_LEN       = 2048
-HOP_LEN         = 512
+FRAME_LEN       = 512
+HOP_LEN         = 64
 TICK = HOP_LEN / SR
 INPUT_DEVICE    = None
 
-CUTOFF_L        = 100
+CUTOFF_L        = 80
 CUTOFF_H        = 3000
 
 MIN_PEAK        = 3
@@ -61,7 +61,7 @@ def safe_mean(x):
         return 0.0
     return float(np.mean(x))
 
-def is_flat(spectrum, threshold = 16):
+def is_flat(spectrum, threshold = 25):
     return np.max(spectrum) - np.median(spectrum) < threshold
 
 def get_window(name: str, n: int):
