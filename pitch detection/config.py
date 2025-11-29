@@ -22,15 +22,35 @@ DEBUG_TIME = 0.889
 # -----------------------------------------------------------------------------
 import librosa
 import numpy as np
+import struct
 
 def load():
     y, _ = librosa.load(FILE, sr=SR)
-    D = librosa.stft(y, n_fft=FRAME_LEN, hop_length=HOP_LEN)
-    S_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
-    num_frames = S_db.shape[1]
+    num_frames = 1 + (len(y) - FRAME_LEN) // HOP_LEN
     times = librosa.frames_to_time(np.arange(num_frames), sr=SR, hop_length=HOP_LEN) + FRAME_LEN / SR
-    freqs = librosa.fft_frequencies(sr=SR, n_fft=FRAME_LEN)
-    return y, S_db, num_frames, times, freqs
+    freqs = np.fft.rfftfreq(FRAME_LEN, d=1.0 / SR)
+    S_db = np.zeros((len(freqs), num_frames))
+
+    dB_73 = -1
+    if dB_73 != -1:
+        with open("calibration/73dB.bin", "rb") as f:
+            dB_73 = struct.unpack("f", f.read(4))[0]
+            print(dB_73)
+    
+    rms = librosa.feature.rms(y=y, frame_length=FRAME_LEN, hop_length=HOP_LEN, center=False)[0]
+    volume = librosa.amplitude_to_db(rms, ref=dB_73) + 73
+
+    window = np.hanning(FRAME_LEN)
+    for i in range(num_frames):
+        start = i * HOP_LEN
+        frame = y[start:start + FRAME_LEN]
+        if len(frame) < FRAME_LEN:
+            frame = np.pad(frame, (0, FRAME_LEN - len(frame)))
+        xw = frame * window
+        spectrum = np.abs(np.fft.rfft(xw))
+        S_db[:, i] = 20.0 * np.log10(np.maximum(spectrum, 1e-12))
+
+    return y, S_db, volume, num_frames, times, freqs
 
 
 def smooth_spectrum_blackman(spectrum, window_size=9):

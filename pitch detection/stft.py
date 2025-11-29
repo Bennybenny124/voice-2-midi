@@ -1,20 +1,11 @@
-import librosa 
 import numpy as np
 import matplotlib.pyplot as plt
-import struct 
 from config import * 
 
-with open("calibration/73dB.bin", "rb") as f:
-    dB_73 = struct.unpack("f", f.read(4))[0]
-
-y, S_db, num_frames, times, freqs = load()
-rms = librosa.feature.rms(y=y, frame_length=FRAME_LEN, hop_length=HOP_LEN)[0]
-volume = librosa.amplitude_to_db(rms, ref=dB_73) + 73
+y, S_db, volume, num_frames, times, freqs = load()
 
 valid_idx = np.where((freqs >= CUTOFF_L) & (freqs <= CUTOFF_H))[0]
-
 f0_by_fft = np.full(num_frames, -1.0)
-
 for frame in range(num_frames):
     spectrum = smooth_spectrum_blackman(S_db[:, frame])
 
@@ -55,7 +46,7 @@ for frame in range(num_frames):
         else:
             i += 1
 
-    if (volume[frame] < 40) or (len(peaks) == 0):
+    if (volume[frame] < 30) or (len(peaks) == 0):
         f0_by_fft[frame] = 0.0
         continue
 
@@ -109,14 +100,22 @@ for frame in range(num_frames):
     else:
         f0_by_fft[frame] = safe_mean(f0s[:, 0])
 
-# 畫圖
-plt.figure(figsize=(10, 4))
-plt.plot(times, f0_by_fft, label='FFT Estimated Pitch (Hz)', alpha=0.8)
-plt.xlabel("Time (s)")
-plt.ylabel("Frequency (Hz)")
-plt.title("Pitch Estimation with Band-Limited Peak Validation")
-plt.grid(True)
-plt.legend()
+fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+axes[0].plot(times, f0_by_fft, label='FFT Estimated Pitch (Hz)', color='tab:orange', alpha=0.7)
+axes[0].set_ylabel("Frequency (Hz)")
+axes[0].set_title("Pitch Estimation")
+axes[0].grid(True)
+axes[0].legend()
+axes[0].set_ylim(100, 600)
+
+axes[1].plot(times, volume, label='Volume (dB)', color='tab:blue', alpha=0.7)
+axes[1].set_xlabel("Time (s)")
+axes[1].set_ylabel("Volume (dB)")
+axes[1].set_title("Volume Estimation")
+axes[1].grid(True)
+axes[1].legend()
+axes[1].set_ylim(-60, 0)
+
 plt.tight_layout()
-plt.ylim(0, FMAX)
 plt.show()

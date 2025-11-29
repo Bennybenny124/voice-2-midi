@@ -1,15 +1,8 @@
-import librosa
 import numpy as np
 import matplotlib.pyplot as plt
-import struct
 from config import *
 
-y, S_db, num_frames, times, freqs = load()
-
-with open("calibration/73dB.bin", "rb") as f:
-    dB_73 = struct.unpack("f", f.read(4))[0]
-rms = librosa.feature.rms(y=y, frame_length=4*FRAME_LEN, hop_length=HOP_LEN)[0]
-volume = librosa.amplitude_to_db(rms, ref=dB_73)
+y, S_db, volume, num_frames, times, freqs = load()
 
 f0_by_fft = np.zeros(num_frames)
 for frame in range(num_frames):
