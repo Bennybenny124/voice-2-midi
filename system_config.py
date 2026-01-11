@@ -5,8 +5,8 @@ SR              = 8000
 CHANNELS        = 1
 FMIN            = 100
 FMAX            = 600
-FRAME_LEN       = 512
-HOP_LEN         = 64
+FRAME_LEN       = 1024
+HOP_LEN         = 32
 TICK = HOP_LEN / SR
 INPUT_DEVICE    = None
 
